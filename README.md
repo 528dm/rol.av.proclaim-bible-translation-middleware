@@ -39,9 +39,15 @@ How verses are grouped:
 
    | Computer | Download |
    |---|---|
-   | Windows | `Proclaim-Bible-Passages-Windows.exe` – just double-click it |
+   | Windows | `Proclaim-Bible-Passages-Windows.zip` |
    | Mac with Apple Silicon (M1, M2, M3, M4…) | `Proclaim-Bible-Passages-Mac-AppleSilicon.zip` |
    | Mac with an Intel processor | `Proclaim-Bible-Passages-Mac-Intel.zip` |
+
+   On Windows, right-click the zip → **Extract All…**, and choose where to put it (for example
+   your Documents folder). Open the extracted **Proclaim - Bible Passages** folder and
+   double-click **Proclaim - Bible Passages.exe**. Keep the exe together with the `_internal`
+   folder next to it – it needs it to run. To start it more easily, right-click the exe →
+   **Show more options → Send to → Desktop (create shortcut)**.
 
    On a Mac, double-click the zip to unpack it, then drag **Proclaim - Bible Passages** into
    your Applications folder. (Not sure which Mac you have? Apple menu → **About This Mac**:
@@ -99,7 +105,11 @@ The 50-word rule always counts the words in the English version, whichever langu
   down and click **Open Anyway** next to the message about the app. You only need to do
   this once. If macOS instead says the app "is damaged", open Terminal and run
   `xattr -cr "/Applications/Proclaim - Bible Passages.app"`, then open it again.
-- The Windows exe takes a couple of seconds to start, because it unpacks itself each time it runs.
+- **Antivirus false alarms.** Some antivirus programs (especially ones that use AI to guess,
+  such as HP Wolf Security) may wrongly flag the app, because malware sometimes uses the same
+  packaging tool (PyInstaller). The builds are made in ways that reduce this, but it can still
+  happen with a new, unsigned app. You can check a download yourself at
+  [virustotal.com](https://www.virustotal.com).
 
 ## Running or building from source
 
@@ -123,8 +133,8 @@ pip install pyinstaller
 python build.py
 ```
 
-On Windows this creates `dist/Proclaim - Bible Passages.exe`, with the version number in its
-**Properties → Details** tab. On a Mac it creates `dist/Proclaim - Bible Passages.app`.
+On Windows this creates the folder `dist/Proclaim - Bible Passages/`, containing the exe (with
+the version number in its **Properties → Details** tab) and the `_internal` folder it needs. On a Mac it creates `dist/Proclaim - Bible Passages.app`.
 PyInstaller can only build for the computer it runs on, so the Mac app must be built on a Mac.
 
 ### Automatic builds (GitHub Actions)

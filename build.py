@@ -3,8 +3,10 @@
     pip install pyinstaller
     python build.py
 
-Windows: creates dist/<name>.exe, a single file, with the version in its
-         Properties > Details tab.
+Windows: creates the folder dist/<name>/ containing <name>.exe (version in its
+         Properties > Details tab) and the _internal folder it needs. A folder
+         build, rather than one self-unpacking exe, is less likely to be
+         mistaken for malware by antivirus programs, and starts faster.
 macOS:   creates dist/<name>.app, with the version in its Get Info window.
 
 PyInstaller can only build for the system it runs on, so the Mac app has to be
@@ -44,7 +46,7 @@ args = [
 ]
 
 if WINDOWS:
-    # one self-contained .exe, with version details for the Properties tab
+    # version details for the exe's Properties tab
     parts = [int(p) for p in re.findall(r"\d+", version)][:4]
     parts += [0] * (4 - len(parts))
     nums = ", ".join(map(str, parts))
@@ -65,8 +67,8 @@ VSVersionInfo(
   ]
 )
 """, encoding="utf-8")
-    args += ["--onefile", "--version-file", str(version_file)]
-# On macOS --windowed builds a normal .app bundle (a one-file build isn't used there).
+    args += ["--version-file", str(version_file)]
+# On macOS --windowed builds a normal .app bundle.
 
 print(f"Building {NAME} {version} for {sys.platform} ...")
 PyInstaller.__main__.run(args + sys.argv[1:])
@@ -86,4 +88,5 @@ if MAC:
     subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app)], check=True)
     print(f"Done: {app}  (version {version})")
 else:
-    print(f"Done: {HERE / 'dist' / (NAME + ('.exe' if WINDOWS else ''))}  (version {version})")
+    exe = NAME + (".exe" if WINDOWS else "")
+    print(f"Done: {HERE / 'dist' / NAME / exe}  (version {version})")

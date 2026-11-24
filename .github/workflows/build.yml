@@ -29,7 +29,7 @@ jobs:
         include:
           - label: Windows
             os: windows-latest
-            asset: Proclaim-Bible-Passages-Windows.exe
+            asset: Proclaim-Bible-Passages-Windows.zip
           - label: Mac (Apple Silicon)
             os: macos-latest
             asset: Proclaim-Bible-Passages-Mac-AppleSilicon.zip
@@ -45,16 +45,28 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install PyInstaller
+      # On Windows, compile PyInstaller's starter program (the "bootloader") from
+      # source instead of using the prebuilt one. Antivirus programs have learned
+      # to associate the prebuilt one with malware that also uses PyInstaller, so
+      # a freshly compiled one is less likely to cause false alarms.
+      - name: Install PyInstaller (Windows, bootloader built from source)
+        if: runner.os == 'Windows'
+        env:
+          PYINSTALLER_COMPILE_BOOTLOADER: "1"
+        run: python -m pip install --no-binary pyinstaller pyinstaller
+
+      - name: Install PyInstaller (Mac)
+        if: runner.os == 'macOS'
         run: python -m pip install pyinstaller
 
       - name: Build
         run: python build.py
 
+      # zip the app folder (the exe plus the _internal folder it needs)
       - name: Package (Windows)
         if: runner.os == 'Windows'
-        shell: bash
-        run: cp dist/*.exe "${{ matrix.asset }}"
+        shell: pwsh
+        run: Compress-Archive -Path dist\* -DestinationPath "${{ matrix.asset }}"
 
       - name: Package (Mac)
         if: runner.os == 'macOS'
