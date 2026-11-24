@@ -34,8 +34,19 @@ How verses are grouped:
 
 ## Using it
 
-1. Download `Proclaim - Bible Passages.exe` from the [Releases](../../releases) page.
-2. Double-click it. Python is **not** needed.
+1. Go to the [latest release](../../releases/latest) and, under **Assets**, download the file
+   for your computer. Python is **not** needed.
+
+   | Computer | Download |
+   |---|---|
+   | Windows | `Proclaim-Bible-Passages-Windows.exe` – just double-click it |
+   | Mac with Apple Silicon (M1, M2, M3, M4…) | `Proclaim-Bible-Passages-Mac-AppleSilicon.zip` |
+   | Mac with an Intel processor | `Proclaim-Bible-Passages-Mac-Intel.zip` |
+
+   On a Mac, double-click the zip to unpack it, then drag **Proclaim - Bible Passages** into
+   your Applications folder. (Not sure which Mac you have? Apple menu → **About This Mac**:
+   it says "Chip: Apple M…" or "Processor: … Intel …".)
+2. Open the app.
 3. Enter passages separated by commas, for example:
 
    ```
@@ -83,11 +94,16 @@ The 50-word rule always counts the words in the English version, whichever langu
   this repository. If BibleGateway changes its page layout, the app may need updating.
 - **"Windows protected your PC" warning.** The exe isn't digitally signed, so Windows
   SmartScreen may warn you the first time. Click **More info → Run anyway**.
-- The exe takes a couple of seconds to start, because it unpacks itself each time it runs.
+- **Mac: "can't be opened" / "Apple could not verify…" warning.** The app isn't notarised
+  by Apple. Click **Done**, then go to **System Settings → Privacy & Security**, scroll
+  down and click **Open Anyway** next to the message about the app. You only need to do
+  this once. If macOS instead says the app "is damaged", open Terminal and run
+  `xattr -cr "/Applications/Proclaim - Bible Passages.app"`, then open it again.
+- The Windows exe takes a couple of seconds to start, because it unpacks itself each time it runs.
 
 ## Running or building from source
 
-Requires Python 3.10 or later on Windows. The app uses only the standard library
+Requires Python 3.10 or later (Windows or Mac). The app uses only the standard library
 (Tkinter for the window), so there's nothing else to install to run it:
 
 ```powershell
@@ -100,15 +116,27 @@ Quick test without the window (prints the output to the console):
 python bible_passages.py "John 3:16-18, Romans 8:28"
 ```
 
-To build the standalone exe with [PyInstaller](https://pyinstaller.org):
+To build the standalone app yourself with [PyInstaller](https://pyinstaller.org):
 
 ```powershell
 pip install pyinstaller
 python build.py
 ```
 
-The exe is created in the `dist` folder, with the version number embedded in its
-**Properties → Details** tab.
+On Windows this creates `dist/Proclaim - Bible Passages.exe`, with the version number in its
+**Properties → Details** tab. On a Mac it creates `dist/Proclaim - Bible Passages.app`.
+PyInstaller can only build for the computer it runs on, so the Mac app must be built on a Mac.
+
+### Automatic builds (GitHub Actions)
+
+You don't normally need to build anything by hand. The workflow in
+`.github/workflows/build.yml` builds the Windows exe and both Mac apps on GitHub's machines:
+
+- **When you publish a release**, all three are built and attached to it automatically
+  (allow about 5 minutes).
+- **On demand:** **Actions** tab → **Build apps** → **Run workflow**. Enter a release tag
+  (e.g. `v1.0.0`) to attach the builds to an existing release, or leave it empty to just
+  build; the files then appear under **Artifacts** at the bottom of the run's page.
 
 ### Versioning
 
@@ -120,8 +148,9 @@ prints it. Releases follow [semantic versioning](https://semver.org) (MAJOR.MINO
 - **MINOR** (1.0.0 → 1.1.0) – new features
 - **MAJOR** (1.x → 2.0.0) – big changes in how the app works
 
-To release: update `__version__`, run `python build.py`, commit, then create a GitHub
-Release tagged to match (e.g. `v1.0.1`) and attach `dist/Proclaim - Bible Passages.exe`.
+To release: update `__version__`, commit and push, then create a GitHub Release tagged to
+match (e.g. `v1.0.1`). The workflow attaches the Windows and Mac downloads a few minutes
+after you publish.
 
 ### Changing the behaviour
 
