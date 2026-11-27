@@ -152,9 +152,15 @@ def format_line(keys, verses, numbers):
     return " ".join(parts)
 
 
-def build_output(text, english="NIVUK", spanish="NVI", english_first=True,
-                 numbers=True, status=None):
+ENGLISH, SPANISH = "english", "spanish"  # line styles: English bold, Spanish italic
+SEP_LINE = (SEPARATOR, None)
+
+
+def build_lines(text, english="NIVUK", spanish="NVI", english_first=True,
+                numbers=True, status=None):
+    """Return a list of (line, style); style is ENGLISH, SPANISH or None (plain)."""
     first, second = (english, spanish) if english_first else (spanish, english)
+    style_a, style_b = (ENGLISH, SPANISH) if english_first else (SPANISH, ENGLISH)
     lines = []
     refs = split_references(text)
     for ref in refs:
@@ -162,12 +168,12 @@ def build_output(text, english="NIVUK", spanish="NVI", english_first=True,
             status(f"Fetching {ref} ...")
         if len(refs) > 1:  # label each passage only when there is more than one
             # first letter in upper case: "1 john 1:9" -> "1 John 1:9"
-            lines.append(re.sub(r"[A-Za-z]", lambda m: m.group().upper(), ref, count=1))
+            lines.append((re.sub(r"[A-Za-z]", lambda m: m.group().upper(), ref, count=1), None))
         try:
             a = get_verses(ref, first)
             b = get_verses(ref, second)
         except Exception as e:  # network error, bad reference, etc.
-            lines += [f"[{ref}] Error: {e}", SEPARATOR]
+            lines += [(f"[{ref}] Error: {e}", None), SEP_LINE]
             continue
         english_verses = a if english_first else b
         # verse order from the first version, plus any only in the second
@@ -181,11 +187,96 @@ def build_output(text, english="NIVUK", spanish="NVI", english_first=True,
                 if words <= MAX_WORDS:
                     size = 2
             group = keys[i:i + size]
-            lines += [format_line(group, a, numbers), format_line(group, b, numbers), SEPARATOR]
+            lines += [(format_line(group, a, numbers), style_a), ("", None),  # blank line between languages
+                      (format_line(group, b, numbers), style_b), SEP_LINE]
             i += size
-    if lines and lines[-1] == SEPARATOR:
+    if lines and lines[-1] == SEP_LINE:
         lines.pop()  # separators go between groups only, not after the last one
-    return "\n".join(lines) + "\n"
+    return lines
+
+
+def build_output(*args, **kwargs):
+    """Plain-text version of build_lines (used by the command line)."""
+    return "".join(line + "\n" for line, _ in build_lines(*args, **kwargs))
+
+
+# ------------------------------------------------------------------ rich-text clipboard
+
+def to_rtf(lines):
+    """RTF with English lines bold and Spanish lines italic (no font set, so the
+    app you paste into keeps its own font and size)."""
+    def esc(s):
+        out = []
+        for ch in s:
+            if ch in "\\{}":
+                out.append("\\" + ch)
+            elif ord(ch) < 128:
+                out.append(ch)
+            else:  # RTF \u takes a signed 16-bit value; characters above U+FFFF as surrogates
+                data = ch.encode("utf-16-le")
+                for j in range(0, len(data), 2):
+                    n = int.from_bytes(data[j:j + 2], "little", signed=True)
+                    out.append(f"\\u{n}?")
+        return "".join(out)
+
+    body = []
+    for line, style in lines:
+        text = esc(line)
+        if style == ENGLISH:
+            text = "{\\b " + text + "}"
+        elif style == SPANISH:
+            text = "{\\i " + text + "}"
+        body.append(text)
+    return "{\\rtf1\\ansi\\uc1\n" + "\\par\n".join(body) + "\\par\n}"
+
+
+def copy_rich(lines, plain):
+    """Put the text on the clipboard as RTF (keeps bold/italic) plus plain text.
+    Returns False if rich copy isn't possible here, so the caller can copy plain text."""
+    rtf = to_rtf(lines)
+    try:
+        if sys.platform == "win32":
+            _copy_rich_windows(rtf, plain)
+            return True
+        if sys.platform == "darwin":
+            import subprocess
+            script = f"set the clipboard to «data RTF {rtf.encode('ascii').hex().upper()}»"
+            subprocess.run(["osascript", "-e", script], check=True, capture_output=True)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _copy_rich_windows(rtf, plain):
+    import ctypes
+    from ctypes import wintypes
+    user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+    user32.OpenClipboard.argtypes = [wintypes.HWND]
+    user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+    user32.SetClipboardData.restype = wintypes.HANDLE
+    user32.RegisterClipboardFormatW.argtypes = [wintypes.LPCWSTR]
+    kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+    kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
+    kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+
+    def put(fmt, data):
+        handle = kernel32.GlobalAlloc(0x0002, len(data))  # GMEM_MOVEABLE
+        ctypes.memmove(kernel32.GlobalLock(handle), data, len(data))
+        kernel32.GlobalUnlock(handle)
+        if not user32.SetClipboardData(fmt, handle):
+            raise OSError("SetClipboardData failed")
+
+    if not user32.OpenClipboard(None):
+        raise OSError("clipboard is busy")
+    try:
+        user32.EmptyClipboard()
+        put(13, (plain.replace("\n", "\r\n") + "\0").encode("utf-16-le"))  # CF_UNICODETEXT
+        put(user32.RegisterClipboardFormatW("Rich Text Format"), rtf.encode("ascii") + b"\0")
+    finally:
+        user32.CloseClipboard()
 
 
 # ------------------------------------------------------------------ GUI
@@ -240,6 +331,9 @@ def run_gui():
 
     out = scrolledtext.ScrolledText(frm, wrap="word", font=("Segoe UI", 11), state="disabled")
     out.grid(row=4, column=0, columnspan=2, sticky="nsew")
+    out.tag_configure(ENGLISH, font=("Segoe UI", 11, "bold"))
+    out.tag_configure(SPANISH, font=("Segoe UI", 11, "italic"))
+    result_lines = []  # last result as (line, style), for the rich-text copy
 
     status = ttk.Label(frm, foreground="gray",
                        text="Text from BibleGateway.com (internet connection required).")
@@ -248,10 +342,12 @@ def run_gui():
     def set_status(msg):
         root.after(0, lambda: status.config(text=msg))
 
-    def show_result(text):
+    def show_result(lines):
+        result_lines[:] = lines
         out.config(state="normal")
         out.delete("1.0", "end")
-        out.insert("1.0", text)
+        for line, style in lines:
+            out.insert("end", line + "\n", style or ())
         out.config(state="disabled")
         status.config(text="Done.")
         btn_go.state(["!disabled"])
@@ -270,17 +366,21 @@ def run_gui():
         root.config(cursor="watch")
 
         def work():  # network calls off the UI thread so the window stays responsive
-            result = build_output(text, english, spanish, english_first, numbers, set_status)
+            result = build_lines(text, english, spanish, english_first, numbers, set_status)
             root.after(0, lambda: show_result(result))
 
         threading.Thread(target=work, daemon=True).start()
 
     def copy_all():
         text = out.get("1.0", "end-1c")
-        if text:
+        if not text:
+            return
+        if result_lines and copy_rich(result_lines, text):
+            status.config(text="Copied to clipboard (English bold, Spanish italic).")
+        else:
             root.clipboard_clear()
             root.clipboard_append(text)
-            status.config(text="Copied to clipboard.")
+            status.config(text="Copied to clipboard (plain text).")
 
     btn_go.config(command=go)
     btn_copy.config(command=copy_all)
