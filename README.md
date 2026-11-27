@@ -9,19 +9,22 @@ Type one or more references, click **Get verses**, and copy the result.
 ## What the output looks like
 
 Each passage is split into small groups. For every group you get the English verses,
-then the same verses in Spanish. Groups are separated by a `--` line (there's no `--`
+then a blank line, then the same verses in Spanish. Groups are separated by a `--` line (there's no `--`
 after the last one):
 
 ```
 John 3:16-18
 16 For God so loved the world that he gave his one and only Son, ... 17 For God did not send his Son into the world ...
+
 16 »Porque tanto amó Dios al mundo que dio a su Hijo único, ... 17 Dios no envió a su Hijo al mundo ...
 --
 18 Whoever believes in him is not condemned, ...
+
 18 El que cree en él no es condenado, ...
 --
 Romans 8:28
 28 And we know that in all things God works for the good of those who love him, ...
+
 28 Ahora bien, sabemos que Dios dispone todas las cosas para el bien de quienes lo aman, ...
 ```
 
@@ -60,6 +63,9 @@ How verses are grouped:
    ```
 
 4. Press **Enter** or click **Get verses**, then **Copy all**.
+   English lines are **bold** and Spanish lines are *italic*. The formatting is kept when you
+   paste into an app that supports rich text (Proclaim, Word and similar). Apps that only take
+   plain text get the plain text.
 
 Options in the window:
 
